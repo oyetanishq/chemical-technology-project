@@ -1,10 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { simulate, singlePass, DEFAULTS } from './model/plant.js';
 import { DWSIM_INPUT, DWSIM_PLANT as D, DWSIM_SWEEP } from './model/reference.js';
-import { LineChart, Bars } from './charts.jsx';
+import { LineChart } from './charts.jsx';
 import Flowsheet from './Flowsheet.jsx';
 
-const TABS = [['inputs', 'Inputs'], ['overview', 'Overview'], ['simulation', 'Simulation'], ['streams', 'Streams & Energy'], ['reactor', 'Reactor'], ['economics', 'Sizing & Economics'], ['validation', 'Validation']];
+const TABS = [['inputs', 'Inputs'], ['overview', 'Overview'], ['simulation', 'Simulation'], ['reactor', 'Reactor'], ['economics', 'Sizing & Economics'], ['validation', 'Validation']];
 const FIELDS = [
   ['Mission', [['targetKgDay', 'CH₄ target', 'kg/day', 10, 5000, 5, 'Plant size. Mission target is 625 kg/day.'], ['days', 'Mission duration', 'days', 30, 1000, 10, '480-day production window.'], ['uptime', 'Plant uptime', '%', 50, 100, 1, 'Running rate rises so the daily average still meets the target.']]],
   ['Reactor', [['T', 'Temperature', '°C', 200, 600, 5, 'Design window 300–400 °C.'], ['P', 'Pressure', 'bar', 1, 10, 0.5, 'Design point 5 bar. Sets the whole plant pressure.'], ['ratio', 'H₂:CO₂ at reactor inlet', 'mol/mol', 3.5, 4.5, 0.01, 'Tuned flowsheet runs at 3.99, close to the 4:1 design ratio.']]],
@@ -82,36 +82,21 @@ function Simulation({ r }) {
     <div className="grid g2">
       <div className="card"><h3>{det[0]}</h3><p className="sub" style={{ marginBottom: 8 }}>{det[1]}</p><table><tbody>{det[2].map(([a, b]) => <tr key={a}><td className="wrap">{a}</td><td className="n">{b}</td></tr>)}</tbody></table></div>
       <div className="card"><div className="row spread"><h3 style={{ margin: 0 }}>Mission playback</h3><div className="row"><button className="btn primary" onClick={() => { if (day >= days) setDay(0); setPlay(!play); }}>{play ? 'Pause' : 'Play'}</button><button className="btn" onClick={() => { setPlay(false); setDay(0); }}>Reset</button></div></div>
-        <div style={{ margin: '10px 0 4px', fontWeight: 600 }}>Day {day} of {days}</div><input aria-label="Mission day" type="range" min="0" max={days} value={day} onChange={(e) => { setPlay(false); setDay(Number(e.target.value)); }} style={{ width: '100%', accentColor: 'var(--accent)' }} />
+        <div style={{ margin: '10px 0 4px', fontWeight: 600 }}>Day {day} of {days}</div><input aria-label="Mission day" type="range" min="0" max={days} value={day} onChange={(e) => { setPlay(false); setDay(Number(e.target.value)); }} style={{ width: '100%', accentColor: 'var(--brand)' }} />
         <div style={{ marginTop: 8 }}>CH₄: <b>{fmt(ch4)} t</b> of {need} t needed</div><div className="progress" role="progressbar" aria-valuenow={Math.min(100, Math.round((ch4 / need) * 100))} aria-valuemin="0" aria-valuemax="100"><div style={{ width: `${Math.min(100, (ch4 / need) * 100)}%` }} /></div>
         <table style={{ marginTop: 10 }}><tbody><tr><td>Liquid O₂ made</td><td className="n">{fmt((r.loxKgDay * day) / 1000)} t</td></tr><tr><td>CO₂ taken from atmosphere</td><td className="n">{fmt((r.co2KgH * hrs) / 1000)} t</td></tr><tr><td>Ice water used</td><td className="n">{fmt((r.waterKgH * hrs) / 1000)} t</td></tr><tr><td>Electric energy, without refrigeration</td><td className="n">{fmt((r.elec.boundary * hrs) / 1000, 0)} MWh</td></tr></tbody></table>
         <p className="sub" style={{ margin: '8px 0 0', fontSize: 13 }}>Assumes the steady rate holds throughout. Catalyst ageing, dust and start-up are not simulated.</p></div>
     </div>
   </div>);
 }
-function Streams({ r }) {
-  const comps = ['CO2', 'H2', 'CH4', 'H2O', 'CO', 'O2']; const names = { CO2: 'CO₂', H2: 'H₂', CH4: 'CH₄', H2O: 'H₂O', CO: 'CO', O2: 'O₂' }; const d = r.duties; const e = r.elec;
-  const nice = (v) => (v === 0 ? '–' : v < 0.01 ? '<0.01' : fmt(v, 2));
-  return (<div className="stack">
-    <div><h2>Streams & energy</h2><p className="sub">All values at your inputs. Mass in {fmt(r.massIn, 2)} kg/h, mass out {fmt(r.massOut, 2)} kg/h.</p></div>
-    <div className="card"><h3>Stream table (kg/h)</h3><div className="tablewrap"><table><thead><tr><th>Stream</th><th className="n">T (°C)</th><th className="n">P (bar)</th><th>Phase</th><th className="n">Total</th>{comps.map((c) => <th className="n" key={c}>{names[c]}</th>)}</tr></thead>
-      <tbody>{r.streams.map((s) => <tr key={s.name} className={/PRODUCT/.test(s.name) ? 'hi' : ''}><td>{s.name}</td><td className="n">{fmt(s.TC, 0)}</td><td className="n">{s.Pbar < 0.1 ? s.Pbar.toFixed(4) : fmt(s.Pbar, 2)}</td><td>{s.phase}</td><td className="n">{fmt(s.kgh, 2)}</td>{comps.map((c) => <td className="n" key={c}>{nice(s.comp[c])}</td>)}</tr>)}</tbody></table></div></div>
-    <div className="grid g2">
-      <div className="card"><h3>Electric load (kW)</h3><Bars rows={[[`Electrolyser (${r.p.eff}%)`, e.electrolyser], ['Preheater', e.preheat], ['CO₂ compressors', e.comp], ['Water heater', e.waterHeat], ['Refrigeration (estimate)', e.cold]]} />
-        <table style={{ marginTop: 10 }}><tbody><tr><td>Without refrigeration</td><td className="n">{fmt(e.boundary)} kW, {fmt(r.yieldBoundary, 2)} kg/kW/day</td></tr><tr><td>With estimated refrigeration</td><td className="n">{fmt(e.totalEst)} kW, {fmt(r.yieldEst, 2)} kg/kW/day</td></tr><tr><td>Electrolyser share, without refrigeration</td><td className="n">{fmt(e.share)}%</td></tr></tbody></table>
-        <p className="sub" style={{ margin: '8px 0 0', fontSize: 13 }}>Excludes separator energy, ice mining and CO₂ capture. No heat integration is assumed, though the reactor releases more heat than the heaters need.</p></div>
-      <div className="card"><h3>Heat duties (kW)</h3><table><tbody>{[['Electrolyser reaction enthalpy', d.qElec], ['Water heater', d.qWaterHeat], ['Preheater', d.qPreheat], ['Sabatier heat released', d.qRx], ['Cooler + knock-out', d.qCool], ['Cryo-cooler heat removed', d.qCryo], ['O₂ precooler', d.qO2Pre], ['O₂ liquefier heat removed', d.qLox], ['Compressor shaft power', d.qComp], ['Intercoolers', d.qIC]].map(([a, b]) => <tr key={a}><td>{a}</td><td className="n">{fmt(b, 2)}</td></tr>)}</tbody></table></div>
-    </div>
-  </div>);
-}
 const range = (a, b, n) => Array.from({ length: n }, (_, i) => a + (i * (b - a)) / (n - 1));
 function Reactor({ r }) {
   const { T, P, ratio } = r.p;
-  const mk = (xs, fn) => { const pts = xs.map((x) => [x, fn(x)]); return [{ name: 'Selectivity (model)', color: 'var(--s3)', pts: pts.map(([x, v]) => [x, v.S]) }, { name: 'Conversion (model)', color: 'var(--s2)', pts: pts.map(([x, v]) => [x, v.X]) }]; };
+  const mk = (xs, fn) => { const pts = xs.map((x) => [x, fn(x)]); return [{ name: 'Selectivity (model)', color: 'var(--s1)', pts: pts.map(([x, v]) => [x, v.S]) }, { name: 'Conversion (model)', color: 'var(--s3)', pts: pts.map(([x, v]) => [x, v.X]) }]; };
   const tS = useMemo(() => mk(range(200, 600, 41), (x) => singlePass(x, P, ratio)), [P, ratio]);
   const pS = useMemo(() => mk(range(1, 10, 37), (x) => singlePass(T, x, ratio)), [T, ratio]);
   const rS = useMemo(() => mk(range(3.5, 4.5, 41), (x) => singlePass(T, P, x)), [T, P]);
-  const dots = (pick) => { const pts = DWSIM_SWEEP.filter(pick); return pts.length ? [{ name: 'DWSIM conversion', dots: true, color: 'var(--s2)', pts: pts.map((a) => [pick.x(a), a[3]]) }, { name: 'DWSIM selectivity', dots: true, color: 'var(--s3)', pts: pts.map((a) => [pick.x(a), a[4]]) }] : []; };
+  const dots = (pick) => { const pts = DWSIM_SWEEP.filter(pick); return pts.length ? [{ name: 'DWSIM conversion', dots: true, color: 'var(--s3)', pts: pts.map((a) => [pick.x(a), a[3]]) }, { name: 'DWSIM selectivity', dots: true, color: 'var(--s1)', pts: pts.map((a) => [pick.x(a), a[4]]) }] : []; };
   const pT = Object.assign((a) => a[1] === P && Math.abs(a[2] - ratio) <= 0.015, { x: (a) => a[0] }); const pP = Object.assign((a) => a[0] === T && Math.abs(a[2] - ratio) <= 0.015, { x: (a) => a[1] }); const pR = Object.assign((a) => a[0] === T && a[1] === P, { x: (a) => a[2] });
   return (<div className="stack">
     <div><h2>Reactor behaviour</h2><p className="sub">Single-pass equilibrium with a fresh H₂ and CO₂ feed. DWSIM dots appear when your other two inputs match a run we made (ratio within 0.015).</p></div>
@@ -170,15 +155,25 @@ export default function App() {
   const go = (k) => { window.location.hash = k; setTab(k); window.scrollTo(0, 0); };
   const r = useMemo(() => simulate(applied), [applied]);
   const stale = ALL.some(([k]) => draft[k] !== applied[k]);
+  const navRef = useRef(null); const [indicator, setIndicator] = useState({ width: 0, transform: 'translateX(0)' });
+  useLayoutEffect(() => {
+    const place = () => {
+      const b = navRef.current?.querySelector('button[aria-selected="true"]');
+      if (b) setIndicator({ width: b.offsetWidth, transform: `translateX(${b.offsetLeft}px)` });
+    };
+    place();
+    window.addEventListener('resize', place);
+    document.fonts?.ready.then(place); // tab widths change when Ubuntu finishes loading
+    return () => window.removeEventListener('resize', place);
+  }, [tab]);
   return (<>
-    <header><h1>Making Rocket Fuel on Mars</h1><p>Sabatier ISRU plant simulator · CHO301 Chemical Technology · Group 11</p></header>
-    <nav role="tablist" aria-label="Sections">{TABS.map(([k, n]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)}>{n}</button>)}</nav>
+    <header><h1>Making Rocket Fuel on Mars</h1><p>Sabatier ISRU plant simulator for CHO301 Chemical Technology, Group 11</p></header>
+    <nav ref={navRef} role="tablist" aria-label="Sections">{TABS.map(([k, n]) => <button key={k} role="tab" aria-selected={tab === k} onClick={() => go(k)}>{n}</button>)}<span className="tab-indicator" aria-hidden="true" style={indicator} /></nav>
     <main>
       {tab !== 'inputs' && tab !== 'validation' && stale && <div style={{ marginBottom: 14 }}><Msg level="info">You changed inputs that haven't been run yet, so these results use the previous values. <a href="#inputs">Go to Inputs</a></Msg></div>}
       {tab === 'inputs' && <Inputs draft={draft} setDraft={setDraft} applied={applied} run={() => { setApplied(draft); go('overview'); }} />}
       {tab === 'overview' && <Overview r={r} />}
       {tab === 'simulation' && <Simulation r={r} />}
-      {tab === 'streams' && <Streams r={r} />}
       {tab === 'reactor' && <Reactor r={r} />}
       {tab === 'economics' && <Economics r={r} />}
       {tab === 'validation' && <Validation />}

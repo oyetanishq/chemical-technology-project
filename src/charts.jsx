@@ -34,7 +34,3 @@ export function LineChart({ title, xLabel, yLabel = 'Percent (%)', series, marke
     </div>
   );
 }
-export function Bars({ rows, unit = 'kW', color = 'var(--s1)' }) {
-  const max = Math.max(...rows.map((r) => Math.abs(r[1])), 1e-9);
-  return <div>{rows.map(([n, v]) => <div className="bar" key={n} title={`${n}: ${v.toFixed(2)} ${unit}`}><span>{n}</span><div className="t"><div className="f" style={{ width: `${(Math.abs(v) / max) * 100}%`, background: color }} /></div><span className="val">{v.toFixed(1)}</span></div>)}</div>;
-}

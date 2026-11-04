@@ -1,6 +1,6 @@
 # Mars ISRU Simulator
 
-React site for the CHO301 Mars Sabatier plant project. Enter inputs and view results, simulation, streams, reactor curves, economics and validation.
+React site for the CHO301 Mars Sabatier plant project. Enter inputs and view results, simulation, reactor curves, economics and validation.
 
     npm install
     npm run dev      # local site
