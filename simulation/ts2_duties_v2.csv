@@ -1,0 +1,18 @@
+energy_stream,unit,kW,meaning
+E-ELEC,ELECTROLYSER,515.637,"reaction enthalpy at 100% efficiency, not electric input"
+E-W-HEAT,W-HEAT,8.083,heats water to 80 C
+E-PREHEAT,PREHEAT,22.125,feed to 350 C
+E-SABATIER,SABATIER,-81.132,negative = heat removed
+E-COOL-01,COOLER-01,59.151,to 25 C for water knock-out
+E-SEP,GAS-SEP,0.116,"solver balance term, NOT separation power"
+E-CRYO,CRYO-COOLER,6.75,"heat removed, not electric input"
+E-O2-PRE,O2-PRECOOL,1.48,80 to 25 C
+E-O2-LIQ,O2-LIQUEFIER,10.964,"heat removed to -170 C, not electric input"
+E-C-1,C-1,2.178,"compressor shaft power, 75% adiabatic"
+E-IC-1,IC-1,0.834,intercooler heat removed
+E-C-2,C-2,2.979,"compressor shaft power, 75% adiabatic"
+E-IC-2,IC-2,2.982,intercooler heat removed
+E-C-3,C-3,2.976,"compressor shaft power, 75% adiabatic"
+E-IC-3,IC-3,2.991,intercooler heat removed
+E-C-4,C-4,2.963,"compressor shaft power, 75% adiabatic"
+E-IC-4,IC-4,3.04,intercooler heat removed
